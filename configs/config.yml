@@ -1,0 +1,7 @@
+debug: True
+init_db: True
+
+user_preferences:
+  logging: True
+  info_cmdout: True
+  download_url: "https://origins.vmti.link/updater/client"
