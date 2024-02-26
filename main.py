@@ -183,8 +183,6 @@ class App(customtkinter.CTk):
         if self.sqdb.fetchone('settings', filters="id=4")[2] == "dir/":
             self.setinstalldir()
 
-        #asyncio.run(self.download())
-
     # Fully Functional | Has all logging
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
@@ -212,6 +210,7 @@ class App(customtkinter.CTk):
             if os.path.exists(output):
                 self.sqdb.update('settings', 'value', output, filters="id=4")
                 success = True
+                self.current_install_dir.configure(text=f"Current Directory:\n{output}")
             else:
 
                 self._log_error('The directory you entered is invalid or was not found!', err=f'path does not exist "{output}"')
@@ -302,10 +301,52 @@ class App(customtkinter.CTk):
                             dividenuber += 1
             if info[version]['removed']:
                 for type in info[version]['removed']:
-                    if type:
+                    if info[version]['removed'][type]:
                         for item in info[version]['removed'][type]:
                             dividenuber += 1
             loadingadd = 1 / dividenuber
+
+            if info[version]['removed']:
+
+                if info[version]['removed']['mods']:
+
+                    for item in info[version]['removed']['mods']:
+                        self.loading_bar_info.configure(text=f"Removing Mod {info[version]['removed']['mods'][item]['name']}")
+
+                        if os.path.exists(f"{game_dir[2]}/mods/{info[version]['removed']['mods'][item]['file']}"):
+                            os.remove(f"{game_dir[2]}/mods/{info[version]['removed']['mods'][item]['file']}")
+                            self._log_info(f"Removed Shader '{info[version]['removed']['mods'][item]['name']}' as file '{info[version]['removed']['mods'][item]['file']}'")
+                        else:
+                            self._log_warn(f"Mod {info[version]['removed']['mods'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info[version]['removed']['mods'][item]['file']}")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+
+
+
+                if info[version]['removed']['shaders']:
+
+                    for item in info[version]['removed']['shaders']:
+                        self.loading_bar_info.configure(text=f"Removing Shader {info[version]['removed']['shaders'][item]['name']}")
+
+                        if os.path.exists(f"{game_dir[2]}/shaderpacks/{info[version]['removed']['shaders'][item]['file']}"):
+                            os.remove(f"{game_dir[2]}/shaderpacks/{info[version]['removed']['shaders'][item]['file']}")
+                            self._log_info(f"Removed Shader '{info[version]['removed']['shaders'][item]['name']}' as file '{info[version]['removed']['shaders'][item]['file']}'")
+                        else:
+                            self._log_warn(f"Mod {info[version]['removed']['shaders'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info[version]['removed']['mods'][item]['file']}")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+
+
+
+                if info[version]['removed']['resourcepacks']:
+
+                    for item in info[version]['removed']['resourcepacks']:
+                        self.loading_bar_info.configure(text=f"Removing Mod {info[version]['removed']['resourcepacks'][item]['name']}")
+
+                        if os.path.exists(f"{game_dir[2]}/resourcepacks/{info[version]['removed']['resourcepacks'][item]['file']}"):
+                            os.remove(f"{game_dir[2]}/resourcepacks/{info[version]['removed']['resourcepacks'][item]['file']}")
+                            self._log_info(f"Removed Resource Pack '{info[version]['removed']['resourcepacks'][item]['name']}' as file '{info[version]['removed']['resourcepacks'][item]['file']}'")
+                        else:
+                            self._log_warn(f"Resource pack {info[version]['removed']['resourcepacks'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info[version]['removed']['mods'][item]['file']}")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
 
 
             if info[version]['added']:
@@ -386,49 +427,6 @@ class App(customtkinter.CTk):
                             if r.status_code == 200:
                                 open(f"{game_dir[2]}/{info[version]['added']['resourcepacks'][item]['file']}", 'wb').write(r.content)
                                 self._log_info(f"Installed Extra file '{info[version]['added']['other_data'][item]['file']}'")
-                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
-
-
-            if info[version]['removed']:
-
-                if info[version]['removed']['mods']:
-
-                    for item in info[version]['removed']['mods']:
-                        self.loading_bar_info.configure(text=f"Removing Mod {info[version]['removed']['mods'][item]['name']}")
-
-                        if os.path.exists(f"{game_dir[2]}/mods/{info[version]['removed']['mods'][item]['file']}"):
-                            os.remove(f"{game_dir[2]}/mods/{info[version]['removed']['mods'][item]['file']}")
-                            self._log_info(f"Removed Shader '{info[version]['removed']['mods'][item]['name']}' as file '{info[version]['removed']['mods'][item]['file']}'")
-                        else:
-                            self._log_warn(f"Mod {info[version]['removed']['mods'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info[version]['removed']['mods'][item]['file']}")
-                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
-
-
-
-                if info[version]['removed']['shaders']:
-
-                    for item in info[version]['removed']['shaders']:
-                        self.loading_bar_info.configure(text=f"Removing Shader {info[version]['removed']['shaders'][item]['name']}")
-
-                        if os.path.exists(f"{game_dir[2]}/shaderpacks/{info[version]['removed']['shaders'][item]['file']}"):
-                            os.remove(f"{game_dir[2]}/shaderpacks/{info[version]['removed']['shaders'][item]['file']}")
-                            self._log_info(f"Removed Shader '{info[version]['removed']['shaders'][item]['name']}' as file '{info[version]['removed']['shaders'][item]['file']}'")
-                        else:
-                            self._log_warn(f"Mod {info[version]['removed']['shaders'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info[version]['removed']['mods'][item]['file']}")
-                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
-
-
-
-                if info[version]['removed']['resourcepacks']:
-
-                    for item in info[version]['removed']['resourcepacks']:
-                        self.loading_bar_info.configure(text=f"Removing Mod {info[version]['removed']['resourcepacks'][item]['name']}")
-
-                        if os.path.exists(f"{game_dir[2]}/resourcepacks/{info[version]['removed']['resourcepacks'][item]['file']}"):
-                            os.remove(f"{game_dir[2]}/resourcepacks/{info[version]['removed']['resourcepacks'][item]['file']}")
-                            self._log_info(f"Removed Resource Pack '{info[version]['removed']['resourcepacks'][item]['name']}' as file '{info[version]['removed']['resourcepacks'][item]['file']}'")
-                        else:
-                            self._log_warn(f"Resource pack {info[version]['removed']['resourcepacks'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info[version]['removed']['mods'][item]['file']}")
                         self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
 
             self.loading_bar.set(1)
