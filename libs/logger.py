@@ -75,6 +75,3 @@ class file_logger():
             return datetime.datetime.now().strftime('%d-%m-%Y_%H-%M-%S')
         else:
             return datetime.datetime.now().strftime('%d-%m-%Y | %H:%M:%S')
-
-    def testdef(self, name:str):
-        return self.cache.getitem(name)

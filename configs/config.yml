@@ -1,7 +1,16 @@
+# Config file version DO NOT CHANGE unless you really know what you are doing
+version: '1.0'
+
+# [True/False] If debugging should be enabled
 debug: True
+
+# [True/False] If the database should be created if not exists when booting.
 init_db: True
 
 user_preferences:
+  # [True/False] If the program should log its actions and errors
   logging: True
+  # [True/False] If the program should log info messages to the commandline output (print)
   info_cmdout: True
+  # [True/False] The URL for downloading information about the modpack, its forks and its versions
   download_url: "https://origins.vmti.link/updater/client"

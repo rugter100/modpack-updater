@@ -1,1 +1,1 @@
-pyinstaller --onefile -w desktop.py --add-data 'D:\Python Project\Origins Updater\venv\Lib\site-packages\customtkinter;customtkinter'
+pyinstaller --uac-admin --onefile -w main.py --add-data 'D:\Python Project\Origins Updater\venv\Lib\site-packages\customtkinter;customtkinter'

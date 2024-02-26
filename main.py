@@ -1,6 +1,8 @@
 # Dependencies: PYYaml customtkinter requests
 # Custom libs: database logger
-import asyncio
+
+current_version = '1.0'
+
 import os
 import threading
 
@@ -81,13 +83,6 @@ class App(customtkinter.CTk):
         with open(r'configs/forks.yml') as forklist:
             self.forks = yaml.load(forklist, Loader=yaml.FullLoader)
 
-        #for mod in self.info['3.1.1']['added']['mods']:
-        #    if not os.path.exists(f"mods/{self.info['3.1.1']['added']['mods'][mod]['file']}"):
-        #        r = requests.get(self.info['3.1.1']['added']['mods'][mod]['url'],
-        #                         allow_redirects=True)
-        #        if r.status_code == 200:
-        #            open(f"mods/{self.info['3.1.1']['added']['mods'][mod]['file']}", 'wb').write(r.content)
-
         self.sqdb = database.sqlite()
         self.sqdb.connect("configs/database.db")
         self.currentdb = self.sqdb
@@ -107,7 +102,7 @@ class App(customtkinter.CTk):
         self.sidebar_frame.grid_rowconfigure(9, weight=1)
 
         self.set_install_dir = customtkinter.CTkButton(self.sidebar_frame, text="Set Install DIR", command=self.setinstalldir)
-        self.set_install_dir.grid(row=24, column=0, padx=20, pady=(10,0))
+        self.set_install_dir.grid(row=23, column=0, padx=20, pady=(10,0))
 
         self.appearance_mode_label = customtkinter.CTkLabel(self.sidebar_frame, text="Appearance Mode:", anchor="w")
         self.appearance_mode_label.grid(row=25, column=0, padx=20, pady=(10, 0))
@@ -131,34 +126,55 @@ class App(customtkinter.CTk):
         self.frame.rowconfigure(2, weight=1)
         self.frame.columnconfigure(11, weight=1)
 
+        game_dir = self.sqdb.dict_getone('settings', 'game_dir')
+
+        local_version = 'None'
+        if os.path.exists(f"{game_dir[2]}/version.txt"):
+            with open(f"{game_dir[2]}/version.txt", "r") as file:
+                local_version = file.read()
+
+        self.version_label = customtkinter.CTkLabel(self.frame, text=f"Current Version: {local_version}")
+        self.version_label.grid(row=0, column=0, padx=20, pady=20, sticky='ew', columnspan=3)
+
         self.fork_select_label = customtkinter.CTkLabel(self.frame, text="Select Fork", font=('calibri', 20))
-        self.fork_select_label.grid(row=0, column=0, padx=20, pady=(20, 10), sticky='ew')
+        self.fork_select_label.grid(row=1, column=0, padx=20, pady=(20, 10), sticky='ew')
         forklist = []
         for item in self.forks:
             forklist.append(self.forks[item]['name'])
         self.fork_select = customtkinter.CTkOptionMenu(self.frame, command=self.update_settings, values=forklist)
-        self.fork_select.grid(row=1, column=0, padx=20, pady=10, sticky='ew')
+        self.fork_select.grid(row=2, column=0, padx=20, pady=10, sticky='ew')
+
+        fork = self.sqdb.dict_getone('settings', 'fork')
+
+        self.fork_select.set(self.forks[fork[2]]['name'])
 
         self.version_select_label = customtkinter.CTkLabel(self.frame, text="Select Version", font=('calibri', 20))
-        self.version_select_label.grid(row=0, column=1, padx=20, pady=(20, 10), sticky='ew')
+        self.version_select_label.grid(row=1, column=1, padx=20, pady=(20, 10), sticky='ew')
         versionlist = ['Latest']
         for item in info:
             versionlist.append(item)
         self.version_select = customtkinter.CTkOptionMenu(self.frame, command=self.update_settings, values=versionlist)
-        self.version_select.grid(row=1, column=1, padx=20, pady=10, sticky='ew')
+        self.version_select.grid(row=2, column=1, padx=20, pady=10, sticky='ew')
+
+        version = self.sqdb.dict_getone('settings', 'version')
+        self.version_select.set(version[2])
 
         self.update_modpack = customtkinter.CTkButton(self.frame, command=self.download_in_thread, text='Update')
-        self.update_modpack.grid(row=0, column=2, padx=20, pady=10)
+        self.update_modpack.grid(row=1, column=2, padx=20, pady=10)
 
         self.loading_bar = customtkinter.CTkProgressBar(self.frame)
-        self.loading_bar.grid(row=2, column=0, padx=20, pady=10, columnspan=3, sticky='ew')
+        self.loading_bar.grid(row=3, column=0, padx=20, pady=10, columnspan=3, sticky='ew')
         self.loading_bar.set(0)
         self.loading_bar_info = customtkinter.CTkLabel(self.frame, text='')
-        self.loading_bar_info.grid(row=3, column=0, padx=20, pady=10, columnspan=3, sticky='ew')
+        self.loading_bar_info.grid(row=4, column=0, padx=20, pady=10, columnspan=3, sticky='ew')
+
+        install_dir = self.sqdb.dict_getone('settings', 'game_dir')
+        self.current_install_dir = customtkinter.CTkLabel(self.frame, text=f"Current Directory:\n{install_dir[2]}")
+        self.current_install_dir.grid(row=25, column=0, padx=20, pady=10, columnspan=3)
 
         self.spacer_frame = customtkinter.CTkFrame(self.frame, height=20)
         self.spacer_frame.grid(row=50, column=0, columnspan=20, padx=0, pady=(20,0), sticky='sew')
-        self.spacer_footer = customtkinter.CTkLabel(self.spacer_frame, text="Copyright: © Vamting IT 2024", font=('calibri', 12))
+        self.spacer_footer = customtkinter.CTkLabel(self.spacer_frame, text=f"Version: {current_version} | Copyright: © Vamting IT 2024", font=('calibri', 12))
         self.spacer_footer.grid(row=0, column=0, padx=10, pady=10, sticky='ew')
 
         if self.logging:
@@ -230,6 +246,12 @@ class App(customtkinter.CTk):
             if os.path.exists('configs/info.yml'):
                 os.remove('configs/info.yml')
             open('configs/info.yml', 'wb').write(r.content)
+            with open(r'configs/info.yml') as info:
+                info = yaml.load(info, Loader=yaml.FullLoader)
+            versionlist = ['Latest']
+            for item in info:
+                versionlist.append(item)
+            self.version_select.configure(values=versionlist)
         else:
             self._log_error("Connection to the mod server failed. Please check your internet connection or contact an admin", "no_200_response", True)
 
@@ -239,132 +261,182 @@ class App(customtkinter.CTk):
         thread.start()
 
     def download(self, item=None):
-        self.loading_bar.set(0)
+        self._log_info('Starting download Process')
         sqdb = database.sqlite()
         sqdb.connect("configs/database.db")
         game_dir = sqdb.dict_getone('settings', 'game_dir')
-        version = self.version_select.get()
+        remote_version = self.version_select.get()
         forkname = self.fork_select.get()
         fork = 'base'
         for item in self.forks:
             if str(forkname) == str(self.forks[item]['name']):
                 fork = item
                 break
-        if version == 'Latest':
-            version = str(self.forks[fork]['latest_version'])
+        if remote_version == 'Latest':
+            remote_version = str(self.forks[fork]['latest_version'])
         with open(r'configs/info.yml') as info:
             info = yaml.load(info, Loader=yaml.FullLoader)
-        dividenuber = 1
-        if info[version]['added']:
-            for type in info[version]['added']:
-                if info[version]['added'][type]:
-                    for item in info[version]['added'][type]:
-                        dividenuber += 1
-        if info[version]['removed']:
-            for type in info[version]['removed']:
-                if type:
-                    for item in info[version]['removed'][type]:
-                        dividenuber += 1
-        loadingadd = 1 / dividenuber
-        if info[version]['added']:
-
-            if info[version]['added']['mods']:
-                if not os.path.exists(f"{game_dir[2]}/mods"):
-                    os.mkdir(f"{game_dir[2]}/mods")
-
-                for item in info[version]['added']['mods']:
-                    self.loading_bar_info.configure(text=f"Checking Mod {info['3.1.1']['added']['mods'][item]['name']}")
-
-                    if not os.path.exists(f"{game_dir[2]}/mods/{info['3.1.1']['added']['mods'][item]['file']}"):
-                        self.loading_bar_info.configure(text=f"Installing Mod {info['3.1.1']['added']['mods'][item]['name']}")
-                        r = requests.get(info['3.1.1']['added']['mods'][item]['url'], allow_redirects=True)
-
-                        if r.status_code == 200:
-                            open(f"{game_dir[2]}/mods/{info['3.1.1']['added']['mods'][item]['file']}", 'wb').write(r.content)
-                            self._log_info(f"Installed Mod '{game_dir[2]}/mods/{info['3.1.1']['added']['mods'][item]['name']}' as file '{game_dir[2]}/mods/{info['3.1.1']['added']['mods'][item]['file']}'")
-                    self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
-
-
-
-            if info[version]['added']['shaders']:
-                if not os.path.exists(f"{game_dir[2]}/shaders"):
-                    os.mkdir(f"{game_dir[2]}/shaders")
-
-                for item in info[version]['added']['shaders']:
-                    self.loading_bar_info.configure(text=f"Checking Mod {info['3.1.1']['added']['shaders'][item]['name']}")
-
-                    if not os.path.exists(f"{game_dir[2]}/shaderpacks/{info['3.1.1']['added']['shaders'][item]['file']}"):
-                        self.loading_bar_info.configure(text=f"Installing Shader {info['3.1.1']['added']['shaders'][item]['name']}")
-                        r = requests.get(info['3.1.1']['added']['shaders'][item]['url'], allow_redirects=True)
-
-                        if r.status_code == 200:
-                            open(f"{game_dir[2]}/shaderpacks/{info['3.1.1']['added']['shaders'][item]['file']}", 'wb').write(r.content)
-                            self._log_info(f"Installed Shader '{game_dir[2]}/mods/{info['3.1.1']['added']['shaders'][item]['name']}' as file '{game_dir[2]}/mods/{info['3.1.1']['added']['shaders'][item]['file']}'")
-                    self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+        local_version = False
+        if os.path.exists(f"{game_dir[2]}/version.txt"):
+            with open(f"{game_dir[2]}/version.txt", "r") as file:
+                local_version = file.read().split('-')
+        versions_to_update = [remote_version]
+        if local_version:
+            add_version = False
+            for item in info:
+                if add_version:
+                    versions_to_update.append(item)
+                if item == local_version[0]:
+                    add_version = True
+                    versions_to_update = [item]
+                if item == remote_version:
+                    add_version = False
+        print(versions_to_update)
+        for version in versions_to_update:
+            self.loading_bar.set(0)
+            dividenuber = 1
+            if info[version]['added']:
+                for type in info[version]['added']:
+                    if info[version]['added'][type]:
+                        for item in info[version]['added'][type]:
+                            dividenuber += 1
+            if info[version]['removed']:
+                for type in info[version]['removed']:
+                    if type:
+                        for item in info[version]['removed'][type]:
+                            dividenuber += 1
+            loadingadd = 1 / dividenuber
 
 
+            if info[version]['added']:
+                self._log_info('Going through added mods')
 
-            if info[version]['added']['resourcepacks']:
-                if not os.path.exists(f"{game_dir[2]}/resourcepacks"):
-                    os.mkdir(f"{game_dir[2]}/resourcepacks")
+                if info[version]['added']['mods']:
+                    self._log_info('Going through mods')
+                    if not os.path.exists(f"{game_dir[2]}/mods"):
+                        os.mkdir(f"{game_dir[2]}/mods")
 
-                for item in info[version]['added']['resourcepacks']:
-                    self.loading_bar_info.configure(text=f"Checking Mod {info['3.1.1']['added']['resourcepacks'][item]['name']}")
+                    for item in info[version]['added']['mods']:
+                        self._log_info(f"Checking Mod {info[version]['added']['mods'][item]['name']}")
+                        self.loading_bar_info.configure(text=f"Checking Mod {info[version]['added']['mods'][item]['name']}")
 
-                    if not os.path.exists(f"{game_dir[2]}/resourcepacks/{info['3.1.1']['added']['resourcepacks'][item]['file']}"):
-                        self.loading_bar_info.configure(text=f"Installing Resource Pack {info['3.1.1']['added']['resourcepacks'][item]['name']}")
-                        r = requests.get(info['3.1.1']['added']['resourcepacks'][item]['url'], allow_redirects=True)
+                        if not os.path.exists(f"{game_dir[2]}/mods/{info[version]['added']['mods'][item]['file']}"):
+                            self.loading_bar_info.configure(text=f"Installing Mod {info[version]['added']['mods'][item]['name']}")
+                            r = requests.get(info[version]['added']['mods'][item]['url'], allow_redirects=True)
 
-                        if r.status_code == 200:
-                            open(f"{game_dir[2]}/resourcepacks/{info['3.1.1']['added']['resourcepacks'][item]['file']}", 'wb').write(r.content)
-                            self._log_info(f"Installed Resouce Pack '{game_dir[2]}/mods/{info['3.1.1']['added']['resourcepacks'][item]['name']}' as file '{game_dir[2]}/mods/{info['3.1.1']['added']['resourcepacks'][item]['file']}'")
-                    self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
-
-
-        if info[version]['removed']:
-
-            if info[version]['removed']['mods']:
-
-                for item in info[version]['removed']['mods']:
-                    self.loading_bar_info.configure(text=f"Removing Mod {info['3.1.1']['removed']['mods'][item]['name']}")
-
-                    if os.path.exists(f"{game_dir[2]}/mods/{info['3.1.1']['removed']['mods'][item]['file']}"):
-                        os.remove(f"{game_dir[2]}/mods/{info['3.1.1']['removed']['mods'][item]['file']}")
-                        self._log_info(f"Removed Shader '{info['3.1.1']['removed']['mods'][item]['name']}' as file '{info['3.1.1']['removed']['mods'][item]['file']}'")
-                    else:
-                        self._log_warn(f"Mod {info['3.1.1']['removed']['mods'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info['3.1.1']['removed']['mods'][item]['file']}")
-                    self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+                            if r.status_code == 200:
+                                open(f"{game_dir[2]}/mods/{info[version]['added']['mods'][item]['file']}", 'wb').write(r.content)
+                                self._log_info(f"Installed Mod '{game_dir[2]}/mods/{info[version]['added']['mods'][item]['name']}' as file '{game_dir[2]}/mods/{info[version]['added']['mods'][item]['file']}'")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
 
 
 
-            if info[version]['removed']['shaders']:
+                if info[version]['added']['shaders']:
+                    self._log_info('Going through shaders')
+                    if not os.path.exists(f"{game_dir[2]}/shaders"):
+                        os.mkdir(f"{game_dir[2]}/shaders")
 
-                for item in info[version]['removed']['shaders']:
-                    self.loading_bar_info.configure(text=f"Removing Mod {info['3.1.1']['removed']['shaders'][item]['name']}")
+                    for item in info[version]['added']['shaders']:
+                        self._log_info(f"Checking Shader {info[version]['added']['shaders'][item]['name']}")
+                        self.loading_bar_info.configure(text=f"Checking Shader {info[version]['added']['shaders'][item]['name']}")
 
-                    if os.path.exists(f"{game_dir[2]}/mods/{info['3.1.1']['removed']['shaders'][item]['file']}"):
-                        os.remove(f"{game_dir[2]}/mods/{info['3.1.1']['removed']['shaders'][item]['file']}")
-                        self._log_info(f"Removed Shader '{info['3.1.1']['removed']['shaders'][item]['name']}' as file '{info['3.1.1']['removed']['shaders'][item]['file']}'")
-                    else:
-                        self._log_warn(f"Mod {info['3.1.1']['removed']['shaders'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info['3.1.1']['removed']['mods'][item]['file']}")
-                    self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+                        if not os.path.exists(f"{game_dir[2]}/shaderpacks/{info[version]['added']['shaders'][item]['file']}"):
+                            self.loading_bar_info.configure(text=f"Installing Shader {info[version]['added']['shaders'][item]['name']}")
+                            r = requests.get(info[version]['added']['shaders'][item]['url'], allow_redirects=True)
+
+                            if r.status_code == 200:
+                                open(f"{game_dir[2]}/shaderpacks/{info[version]['added']['shaders'][item]['file']}", 'wb').write(r.content)
+                                self._log_info(f"Installed Shader '{info[version]['added']['shaders'][item]['name']}' as file '{game_dir[2]}/mods/{info[version]['added']['shaders'][item]['file']}'")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
 
 
 
-            if info[version]['removed']['resourcepacks']:
+                if info[version]['added']['resourcepacks']:
+                    self._log_info('Going through resouce packs')
+                    if not os.path.exists(f"{game_dir[2]}/resourcepacks"):
+                        os.mkdir(f"{game_dir[2]}/resourcepacks")
 
-                for item in info[version]['removed']['resourcepacks']:
-                    self.loading_bar_info.configure(text=f"Removing Mod {info['3.1.1']['removed']['resourcepacks'][item]['name']}")
+                    for item in info[version]['added']['resourcepacks']:
+                        self._log_info(f"Checking Resource pack {info[version]['added']['resourcepacks'][item]['name']}")
+                        self.loading_bar_info.configure(text=f"Checking Resource pack {info[version]['added']['resourcepacks'][item]['name']}")
 
-                    if os.path.exists(f"{game_dir[2]}/mods/{info['3.1.1']['removed']['resourcepacks'][item]['file']}"):
-                        os.remove(f"{game_dir[2]}/mods/{info['3.1.1']['removed']['resourcepacks'][item]['file']}")
-                        self._log_info(f"Removed Resource Pack '{info['3.1.1']['removed']['resourcepacks'][item]['name']}' as file '{info['3.1.1']['removed']['resourcepacks'][item]['file']}'")
-                    else:
-                        self._log_warn(f"Mod {info['3.1.1']['removed']['resourcepacks'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info['3.1.1']['removed']['mods'][item]['file']}")
-                    self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+                        if not os.path.exists(f"{game_dir[2]}/resourcepacks/{info[version]['added']['resourcepacks'][item]['file']}"):
+                            self.loading_bar_info.configure(text=f"Installing Resource Pack {info[version]['added']['resourcepacks'][item]['name']}")
+                            r = requests.get(info[version]['added']['resourcepacks'][item]['url'], allow_redirects=True)
 
-        self.loading_bar.set(1)
-        self.loading_bar_info.configure(text="Done!")
+                            if r.status_code == 200:
+                                open(f"{game_dir[2]}/resourcepacks/{info[version]['added']['resourcepacks'][item]['file']}", 'wb').write(r.content)
+                                self._log_info(f"Installed Resouce Pack '{info[version]['added']['resourcepacks'][item]['name']}' as file '{game_dir[2]}/mods/{info[version]['added']['resourcepacks'][item]['file']}'")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+
+                if info[version]['added']['other_data']:
+                    self._log_info('Going through other data')
+
+                    for item in info[version]['added']['other_data']:
+                        self._log_info(f"Checking file {info[version]['added']['other_data'][item]['file']}")
+                        self.loading_bar_info.configure(text=f"Checking File {info[version]['added']['other_data'][item]['file']}")
+                        if info[version]['added']['other_data'][item]['replace']:
+                            if os.path.exists(f"{game_dir[2]}/{info[version]['added']['other_data'][item]['file']}"):
+                                os.remove(f"{game_dir[2]}/{info[version]['added']['other_data'][item]['file']}")
+
+                        if not os.path.exists(f"{game_dir[2]}/{info[version]['added']['other_data'][item]['file']}"):
+                            self.loading_bar_info.configure(text=f"Installing File {info[version]['added']['other_data'][item]['file']}")
+                            r = requests.get(info[version]['added']['other_data'][item]['url'], allow_redirects=True)
+
+                            if r.status_code == 200:
+                                open(f"{game_dir[2]}/{info[version]['added']['resourcepacks'][item]['file']}", 'wb').write(r.content)
+                                self._log_info(f"Installed Extra file '{info[version]['added']['other_data'][item]['file']}'")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+
+
+            if info[version]['removed']:
+
+                if info[version]['removed']['mods']:
+
+                    for item in info[version]['removed']['mods']:
+                        self.loading_bar_info.configure(text=f"Removing Mod {info[version]['removed']['mods'][item]['name']}")
+
+                        if os.path.exists(f"{game_dir[2]}/mods/{info[version]['removed']['mods'][item]['file']}"):
+                            os.remove(f"{game_dir[2]}/mods/{info[version]['removed']['mods'][item]['file']}")
+                            self._log_info(f"Removed Shader '{info[version]['removed']['mods'][item]['name']}' as file '{info[version]['removed']['mods'][item]['file']}'")
+                        else:
+                            self._log_warn(f"Mod {info[version]['removed']['mods'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info[version]['removed']['mods'][item]['file']}")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+
+
+
+                if info[version]['removed']['shaders']:
+
+                    for item in info[version]['removed']['shaders']:
+                        self.loading_bar_info.configure(text=f"Removing Shader {info[version]['removed']['shaders'][item]['name']}")
+
+                        if os.path.exists(f"{game_dir[2]}/shaderpacks/{info[version]['removed']['shaders'][item]['file']}"):
+                            os.remove(f"{game_dir[2]}/shaderpacks/{info[version]['removed']['shaders'][item]['file']}")
+                            self._log_info(f"Removed Shader '{info[version]['removed']['shaders'][item]['name']}' as file '{info[version]['removed']['shaders'][item]['file']}'")
+                        else:
+                            self._log_warn(f"Mod {info[version]['removed']['shaders'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info[version]['removed']['mods'][item]['file']}")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+
+
+
+                if info[version]['removed']['resourcepacks']:
+
+                    for item in info[version]['removed']['resourcepacks']:
+                        self.loading_bar_info.configure(text=f"Removing Mod {info[version]['removed']['resourcepacks'][item]['name']}")
+
+                        if os.path.exists(f"{game_dir[2]}/resourcepacks/{info[version]['removed']['resourcepacks'][item]['file']}"):
+                            os.remove(f"{game_dir[2]}/resourcepacks/{info[version]['removed']['resourcepacks'][item]['file']}")
+                            self._log_info(f"Removed Resource Pack '{info[version]['removed']['resourcepacks'][item]['name']}' as file '{info[version]['removed']['resourcepacks'][item]['file']}'")
+                        else:
+                            self._log_warn(f"Resource pack {info[version]['removed']['resourcepacks'][item]['name']} Was not found! Skipping", err=f"filenotfound: {info[version]['removed']['mods'][item]['file']}")
+                        self.loading_bar.set(float(self.loading_bar.get() + loadingadd))
+
+            self.loading_bar.set(1)
+            self.loading_bar_info.configure(text="Done!")
+        if os.path.exists(f"{game_dir[2]}/version.txt"):
+            os.remove(f"{game_dir[2]}/version.txt")
+        with open(f"{game_dir[2]}/version.txt", "w") as file:
+            file.write(f"{remote_version}-{fork}")
 
 
     # Not Functional yet !!DO NOT CALL!!
@@ -571,11 +643,14 @@ if __name__ == "__main__":
             log.info('desktop', msg='Scanning configs/config.yml for valid entries', cmdout=cfg['user_preferences']['info_cmdout'])
 
         # checks if config entries are valid
-        bool_values = {'':False}
+        bool_values = {'debug': cfg['debug'],
+                       'init_db': cfg['init_db'],
+                       'user_preferences/logging': cfg['user_preferences']['logging'],
+                       'user_preferences/info_cmdout': cfg['user_preferences']['info_cmdout']}
 
-        str_values = {'':''}
+        str_values = {'download_url': cfg['user_preferences']['download_url']}
 
-        int_values = {'':1}
+        # int_values = {'':1}
 
         for key, value in bool_values.items():
             if not isinstance(value, bool):
@@ -594,17 +669,37 @@ if __name__ == "__main__":
                     err = f"{key} is not a string (make sure to put value in between '')"
                     break
 
-        if not boot_error:
+        """if not boot_error:
             for key, value in int_values.items():
                 if not isinstance(value, int):
                     boot_error = True
                     critical = True
                     msg = "An error occurred with config.yml"
                     err = f"{key} is not a integer (numeric digit)"
-                    break
+                    break"""
 
         logging = cfg['user_preferences']['logging']
         info_cmdout = cfg['user_preferences']['info_cmdout']
+
+        if not boot_error:
+            log.info('desktop', msg='Checking Version', cmdout=info_cmdout)
+            r = requests.get(f"{cfg['user_preferences']['download_url']}/installer/versions.txt",
+                             allow_redirects=True)
+            if r.status_code == 200:
+
+
+                versions = r.content.decode('utf-8').split('\n')
+                if current_version != versions[-1]:
+                    boot_error = True
+                    critical = False
+                    msg = "You do not have the latest version of the updater installed. please check origins.vmti.link or the discord for an update"
+                    err = f"Your version: {current_version} | Latest version: {versions[-1]}"
+
+            else:
+                boot_error = True
+                critical = True
+                msg = "Connection to the mod server failed. Please check your internet connection or contact an admin"
+                err = "no_200_response"
 
         if not boot_error:
             if logging:
