@@ -24,8 +24,6 @@ class file_logger():
 
     def __init__(self):
         self.cache = _cache()
-        with open(r'configs/config.yml') as config:
-            self.cfg = yaml.load(config, Loader=yaml.FullLoader)
         if not os.path.exists('logs'):
             os.mkdir('logs')
 
@@ -43,7 +41,7 @@ class file_logger():
             self.defaultlog = name
         return time
 
-    def info(self, name:str=None, msg:str='No Message', cmdout=False):
+    def info(self, msg:str='No Message', cmdout=False, name:str=None):
         if name is None:
             name = self.defaultlog
         with open(self.cache['info', name], 'a') as file:
@@ -51,7 +49,7 @@ class file_logger():
         if cmdout:
             print(f"{self._get_time_now()} [{name}][INFO]  {msg}")
 
-    def warn(self, name:str=None, msg:str='No Message', err=False, cmdout=True):
+    def warn(self, msg:str='No Message', err=False, cmdout=True, name:str=None):
         errmsg = ''
         if name is None:
             name = self.defaultlog
@@ -62,7 +60,7 @@ class file_logger():
         if cmdout:
             print(f"{self._get_time_now()} [{name}][WARN]  {msg}{errmsg}")
 
-    def error(self, name:str=None, msg:str='No Message', err:str='No Error', cmdout=True):
+    def error(self, msg:str='No Message', err:str='No Error', cmdout=True, name:str=None):
         if name is None:
             name = self.defaultlog
         with open(self.cache['error', name], 'a') as file:

@@ -1,1 +1,8 @@
 pyinstaller --uac-admin --onefile -w main.py --add-data 'D:\Python Project\Origins Updater\venv\Lib\site-packages\customtkinter;customtkinter'
+pyinstaller --onefile -w --add-data 'D:\Python Project\Origins Updater\venv\Lib\site-packages\customtkinter;customtkinter' --manifest "app.manifest" main.py
+
+pyinstaller --uac-admin --onefile -w updater.py --add-data 'D:\Python Project\Origins Updater\venv\Lib\site-packages\customtkinter;customtkinter'
+pyinstaller --onefile -w --add-data 'D:\Python Project\Origins Updater\venv\Lib\site-packages\customtkinter;customtkinter' --manifest "app.manifest" updater.py
+
+pyinstaller --uac-admin --onefile -w installer.py --add-data 'D:\Python Project\Origins Updater\venv\Lib\site-packages\customtkinter;customtkinter'
+pyinstaller --onefile -w --add-data 'D:\Python Project\Origins Updater\venv\Lib\site-packages\customtkinter;customtkinter' --manifest "app.manifest" installer.py

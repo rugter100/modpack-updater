@@ -1,11 +1,12 @@
 # Dependencies: PYYaml customtkinter requests
 # Custom libs: database logger
 
-current_version = '1.0'
+current_version = '1.1'
 
+
+import subprocess
 import os
 import threading
-
 import requests
 import datetime
 import yaml
@@ -36,16 +37,18 @@ class BootGUI(customtkinter.CTk):
         self.destroy()
 
 
-
 class ErrorGUI(customtkinter.CTk):
-    def __init__(self, msg=str, err=str, time_wait=0, critical=False):
+    def __init__(self, msg=str, err=str, time_wait=0, critical=False, updater=False):
         super().__init__()
 
         self.title("ERROR!")
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
+        arg_part = "The program will still launch in"
+        if updater:
+            arg_part = "The Updater will run in"
         if not critical:
-            arg_full = f"{msg}\nError:[{err}]\nThe program will still launch in {time_wait} seconds"
+            arg_full = f"{msg}\nError:[{err}]\n{arg_part} {time_wait} seconds"
         else:
             arg_full = f"{msg}\nError:[{err}]\nThe program will exit in {time_wait} seconds"
         self.title = customtkinter.CTkLabel(self, text=str(arg_full))
@@ -57,11 +60,16 @@ class ErrorGUI(customtkinter.CTk):
         if not critical:
             self.button = customtkinter.CTkButton(self.buttonframe, text="Resume", command=self.skip_wait)
             self.button.grid(row=0, column=1, padx=20, pady=(20, 20), sticky="e")
+        if updater:
+            self.button.configure(command=self.launch_updater)
 
     def skip_wait(self):
         self.destroy()
         if not critical:
             open_second_gui()
+
+    def launch_updater(self):
+        subprocess.Popen(['updater.exe'], shell=True)
 
 class App(customtkinter.CTk):
     def __init__(self):
@@ -178,7 +186,7 @@ class App(customtkinter.CTk):
         self.spacer_footer.grid(row=0, column=0, padx=10, pady=10, sticky='ew')
 
         if self.logging:
-            self.log.info('desktop', msg='Main GUI Launched', cmdout=self.info_cmdout)
+            self.log.info(msg='Main GUI Launched', cmdout=self.info_cmdout)
 
         if self.sqdb.fetchone('settings', filters="id=4")[2] == "dir/":
             self.setinstalldir()
@@ -617,6 +625,10 @@ def bootgui():
     bootapp = BootGUI()
     bootapp.mainloop()
 
+def launch_updater():
+    subprocess.Popen(['updater.exe'], shell=True)
+
+
 if __name__ == "__main__":
     log = logger.file_logger()
     log_time = log.initialize('desktop')
@@ -626,6 +638,7 @@ if __name__ == "__main__":
     critical = False
     msg = "error message was called accidentally"
     err = False
+    update = False
     mysql_connected = False
     timetowait = 30
 
@@ -638,7 +651,7 @@ if __name__ == "__main__":
         bootapp.updatesubinfo("checking config.yml")
         bootapp.update()  # Force an update of the GUI
         if cfg['user_preferences']['logging']:
-            log.info('desktop', msg='Scanning configs/config.yml for valid entries', cmdout=cfg['user_preferences']['info_cmdout'])
+            log.info(msg='Scanning configs/config.yml for valid entries', cmdout=cfg['user_preferences']['info_cmdout'])
 
         # checks if config entries are valid
         bool_values = {'debug': cfg['debug'],
@@ -680,18 +693,22 @@ if __name__ == "__main__":
         info_cmdout = cfg['user_preferences']['info_cmdout']
 
         if not boot_error:
-            log.info('desktop', msg='Checking Version', cmdout=info_cmdout)
-            r = requests.get(f"{cfg['user_preferences']['download_url']}/installer/versions.txt",
+            log.info(msg='Checking Version', cmdout=info_cmdout)
+            r = requests.get(f"{cfg['user_preferences']['download_url']}/installer/versions.yml",
                              allow_redirects=True)
             if r.status_code == 200:
+                open('configs/versions.yml', 'wb').write(r.content)
+                with open(r'configs/versions.yml') as versionlist:
+                    versions = yaml.load(versionlist, Loader=yaml.FullLoader)
+                latest_version = list(versions.keys())[-1]
 
-
-                versions = r.content.decode('utf-8').split('\n')
-                if current_version != versions[-1]:
+                if str(current_version) != str(latest_version):
                     boot_error = True
                     critical = False
                     msg = "You do not have the latest version of the updater installed. please check origins.vmti.link or the discord for an update"
-                    err = f"Your version: {current_version} | Latest version: {versions[-1]}"
+                    err = f"Your version: {current_version} | Latest version: {latest_version}"
+                    update = True
+                    log.warn('Latest version not installed. Starting updater!')
 
             else:
                 boot_error = True
@@ -701,7 +718,7 @@ if __name__ == "__main__":
 
         if not boot_error:
             if logging:
-                log.info('desktop', msg='Scan successful! Connecting to database', cmdout=info_cmdout)
+                log.info(msg='Scan successful! Connecting to database', cmdout=info_cmdout)
             bootapp.updateinfo("Connecting to databases")
             bootapp.updatesubinfo(f"Connecting to Local DB")
             bootapp.update()  # Force an update of the GUI
@@ -713,7 +730,7 @@ if __name__ == "__main__":
                     sqdb.create_table(table="settings", values="id INT, itemkey VARCHAR, value VARCHAR")
                     exists = sqdb.fetchall(table='settings')
                     if not len(exists):
-                        log.info('desktop', msg="Initializing settings", cmdout=info_cmdout)
+                        log.info(msg="Initializing settings", cmdout=info_cmdout)
                         sqdb.insertmultiple('settings', collumns='id, itemkey, value', values=['0, "appearance", "System"',
                                                                                                '1, "scaling", "100"',
                                                                                                '2, "fork", "base"',
@@ -721,16 +738,16 @@ if __name__ == "__main__":
                                                                                                '4, "game_dir", "dir/"'])
                     #last_connected_exists = sqdb.insert_if_not_exists(table='user_data', filters='key=last_time_connected', collumns='key,value', values=("last_time_connected",datetime.datetime.now()))
                     if logging:
-                        log.warn('desktop', msg='Tables were created. Please disable this in the config if this is not the first boot.')
+                        log.warn(msg='Tables were created. Please disable this in the config if this is not the first boot.')
                 if logging:
-                    log.info('desktop', msg='Database connected.', cmdout=info_cmdout)
+                    log.info(msg='Database connected.', cmdout=info_cmdout)
             except Exception as e:
                 boot_error = True
                 critical = True
                 msg = "An error occurred with Sqlite"
                 err = e
         if not boot_error:
-            log.info('desktop', msg='Downloading modlists...', cmdout=info_cmdout)
+            log.info(msg='Downloading modlists...', cmdout=info_cmdout)
             r = requests.get(f"{cfg['user_preferences']['download_url']}/forks.yml",
                              allow_redirects=True)
             if r.status_code == 200:
@@ -752,21 +769,29 @@ if __name__ == "__main__":
                 if os.path.exists('configs/info.yml'):
                     os.remove('configs/info.yml')
                 open('configs/info.yml', 'wb').write(request.content)
+                log.info(msg='Done downloading!', cmdout=info_cmdout)
             else:
                 boot_error = True
                 critical = True
                 msg = "Connection to the mod server failed. Please check your internet connection or contact an admin"
                 err = "no_200_response"
-        log.info('desktop', msg='Done downloading!', cmdout=info_cmdout)
 
 
 
 
     if boot_error:
         bootapp.close_gui()
-        if not critical:
+        if update:
             if logging:
-                log.warn('desktop', msg=msg, err=err)
+                log.warn(msg=msg, err=err)
+            error_app = ErrorGUI(msg=str(msg), err=str(err), time_wait=5, updater=True)
+            error_app.after(5 * 1000,
+                            launch_updater)  # Open the second GUI after a delay of 'timetowait' seconds (see param at top of if statement)
+            error_app.mainloop()
+            sys.exit()
+        elif not critical:
+            if logging:
+                log.warn(msg=msg, err=err)
             error_app = ErrorGUI(msg=str(msg), err=str(err), time_wait=timetowait)
             error_app.after(timetowait * 1000,
                             open_second_gui)  # Open the second GUI after a delay of 'timetowait' seconds (see param at top of if statement)
@@ -774,12 +799,12 @@ if __name__ == "__main__":
             sys.exit()
         else:
             if logging:
-                log.error('desktop', msg=msg, err=err)
+                log.error(msg=msg, err=err)
             error_app = ErrorGUI(msg=str(msg), err=str(err), time_wait=timetowait, critical=True)
             error_app.mainloop()
             sys.exit()
 
     else:
-        log.info('desktop', msg='Launching main GUI', cmdout=info_cmdout)
+        log.info(msg='Launching main GUI', cmdout=info_cmdout)
         bootapp.close_gui()
         open_second_gui()
